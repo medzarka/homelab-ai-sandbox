@@ -60,10 +60,16 @@ else
     else
         echo ">>> [Toolchain] Downloading requested OpenJDK ${JAVA_VERSION} into RAM..."
         mkdir -p "${JDK_DIR}"
-        # Fetch official Adoptium / Eclipse Temurin JDK tarball
-        DOWNLOAD_URL="https://api.adoptium.net/v3/binary/latest/${JAVA_VERSION}/ga/linux/x64/jdk/hotspot/normal/eclipse"
+        ARCH_RAW="$(uname -m)"
+        case "${ARCH_RAW}" in
+            x86_64|amd64) ADOPT_ARCH="x64" ;;
+            aarch64|arm64) ADOPT_ARCH="aarch64" ;;
+            *) ADOPT_ARCH="x64" ;;
+        esac
+        # Fetch official Adoptium / Eclipse Temurin JDK tarball for current architecture
+        DOWNLOAD_URL="https://api.adoptium.net/v3/binary/latest/${JAVA_VERSION}/ga/linux/${ADOPT_ARCH}/jdk/hotspot/normal/eclipse"
         if curl -sL "${DOWNLOAD_URL}" | tar -xz -C "${JDK_DIR}" --strip-components=1 2>/dev/null; then
-            echo ">>> [Toolchain] OpenJDK ${JAVA_VERSION} installed in RAM: ${JDK_DIR}"
+            echo ">>> [Toolchain] OpenJDK ${JAVA_VERSION} (${ADOPT_ARCH}) installed in RAM: ${JDK_DIR}"
             ln -sf "${JDK_DIR}/bin/javac" "${BIN_DIR}/javac"
             ln -sf "${JDK_DIR}/bin/java" "${BIN_DIR}/java"
             ln -sf "${JDK_DIR}/bin/jar" "${BIN_DIR}/jar"

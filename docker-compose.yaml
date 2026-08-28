@@ -20,14 +20,13 @@ services:
 
   # ========================================================
   # AGENT EXECUTION SANDBOX (Headless REST Execution API)
-  # Python ML, Tectonic LaTeX PDF, C, C++, Rust & Java
+  # Multi-Node High Availability (zap-srv & oci01-flex)
   # ========================================================
   agent-sandbox:
     build:
       context: ./agent-sandbox
       dockerfile: Dockerfile
     image: ghcr.io/medzarka/homelab-ai-sandbox:latest
-    container_name: compute_agent_sandbox
     restart: unless-stopped
     depends_on:
       sandbox-ramdisk-init:
@@ -48,6 +47,33 @@ services:
       - RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-12}
     ports:
       - "8088:8088"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8088/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      mode: replicated
+      replicas: ${SANDBOX_REPLICAS:-2}
+      placement:
+        preferences:
+          - spread: node.hostname
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 5
+        window: 60s
+      resources:
+        limits:
+          memory: 4096M
+        reservations:
+          memory: 512M
     labels:
       - traefik.enable=true
       - traefik.http.routers.agent-sandbox.rule=Host(`${SANDBOX_DOMAIN:-sandbox.example.com}`)
@@ -56,6 +82,9 @@ services:
       - traefik.http.routers.agent-sandbox.tls.certresolver=cloudflare
       - traefik.http.routers.agent-sandbox.middlewares=app-fail2ban,security-headers
       - traefik.http.services.agent-sandbox.loadbalancer.server.port=8088
+      - traefik.http.services.agent-sandbox.loadbalancer.healthcheck.path=/health
+      - traefik.http.services.agent-sandbox.loadbalancer.healthcheck.interval=10s
+      - traefik.http.services.agent-sandbox.loadbalancer.healthcheck.timeout=3s
       - traefik.docker.network=${SWARM_NETWORK:-homelab_swarm_net}
     networks:
       - shared_net

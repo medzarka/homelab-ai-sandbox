@@ -6,10 +6,30 @@ It exposes a robust **Model Context Protocol (MCP)** server over both REST and S
 
 ## Features
 - **Multi-Language Support**: Compiles and runs Python, C, C++, Rust, Java, and Bash.
+- **Multi-Arch Native Support**: Dynamic runtime detection for both AMD64 (`zap-srv`) and ARM64 (`oci01-flex`).
+- **High Availability & Failover**: Deployed across multiple nodes (`zap-srv` and `oci01-flex`) with automatic health checking and load balancing via Docker Swarm & Traefik.
 - **Tectonic LaTeX Engine**: Compiles academic and complex math PDFs on the fly.
 - **RAM-Disk Isolation**: All code execution, scratch files, and binaries live entirely on a host-provided ephemeral RAM disk (`/mnt/ramdisk`). Everything is wiped from memory once the session TTL expires.
 - **API Key Security**: Endpoints are strictly protected by API key authentication.
 - **Traefik Ingress**: Connect securely over the internet via Traefik or directly over the internal Docker Swarm network.
+
+## Multi-Node High Availability Architecture
+
+```mermaid
+graph TD
+    Client["AI Agent (Hermes / Open-WebUI)"] --> Traefik["Traefik Gateway (websecure)"]
+    
+    subgraph Docker_Swarm ["Docker Swarm Overlay Mesh (homelab_swarm_net)"]
+        Traefik --> VIP["Swarm Service VIP (agent-sandbox:8088)"]
+        VIP --> Node1["zap-srv (Primary AMD64 Node)"]
+        VIP -. "Automatic Failover" .-> Node2["oci01-flex (Secondary ARM64 Node)"]
+        
+        Node1 --> Sandbox1["Sandbox Instance 1 (/mnt/ramdisk)"]
+        Node2 --> Sandbox2["Sandbox Instance 2 (/mnt/ramdisk)"]
+    end
+```
+
+- If `zap-srv` goes offline or its sandbox container fails healthchecks, Docker Swarm and Traefik automatically route all agent traffic to the healthy instance on `oci01-flex` with zero disruption.
 
 ## Getting Started
 
@@ -21,10 +41,11 @@ It exposes a robust **Model Context Protocol (MCP)** server over both REST and S
    openssl rand -hex 32
    # Add the generated key to SANDBOX_API_KEY in .env
    ```
-3. **Deploy:**
-   If using Arcane (or standard Docker Swarm):
+3. **Deploy via Docker Swarm / Arcane:**
+   Deploy the stack to your Swarm cluster:
    ```bash
-   docker compose up -d
+   docker stack deploy -c docker-compose.yaml ai-sandbox
+   # Or deploy via Arcane Cockpit
    ```
 
 ## Connecting an Agent
@@ -44,6 +65,12 @@ To connect an MCP-compatible client, configure it to hit the SSE endpoint with y
     }
   }
 }
+```
+
+## Health Checks
+Test the health of the sandbox cluster anytime:
+```bash
+curl -i https://sandbox.yourdomain.com/health
 ```
 
 ## CI/CD
