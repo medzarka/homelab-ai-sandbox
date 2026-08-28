@@ -6,7 +6,7 @@ services:
     image: alpine:latest
     container_name: compute_sandbox_ramdisk_init
     user: "0:0"
-    restart: "no"
+    restart: unless-stopped
     network_mode: none
     volumes:
       - ${RAMDISK_DIR:-/mnt/ramdisk}:/ramdisk
@@ -16,7 +16,14 @@ services:
         echo ">>> [Sandbox RAMDisk Init] Creating ephemeral service directories in RAM..."
         mkdir -p /ramdisk/sandbox /ramdisk/logs
         chmod -R 777 /ramdisk
-        echo ">>> [Sandbox RAMDisk Init] RAM-disk initialization complete."
+        echo ">>> [Sandbox RAMDisk Init] RAM-disk initialization complete. Storage guard active."
+        sleep infinity
+    healthcheck:
+      test: ["CMD-SHELL", "test -d /ramdisk/sandbox || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
   # ========================================================
   # AGENT EXECUTION SANDBOX (Headless REST Execution API)
@@ -31,7 +38,7 @@ services:
     restart: unless-stopped
     depends_on:
       sandbox-ramdisk-init:
-        condition: service_completed_successfully
+        condition: service_healthy
     volumes:
       - ${RAMDISK_DIR:-/mnt/ramdisk}/sandbox:/ramdisk/sandbox
     dns:
