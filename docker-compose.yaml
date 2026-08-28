@@ -26,7 +26,7 @@ services:
     build:
       context: ./agent-sandbox
       dockerfile: Dockerfile
-    image: homelab-ai-sandbox:latest
+    image: ghcr.io/medzarka/homelab-ai-sandbox:latest
     container_name: compute_agent_sandbox
     restart: unless-stopped
     depends_on:
@@ -48,6 +48,15 @@ services:
       - RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-12}
     ports:
       - "8088:8088"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.agent-sandbox.rule=Host(`${SANDBOX_DOMAIN:-sandbox.example.com}`)
+      - traefik.http.routers.agent-sandbox.entrypoints=websecure
+      - traefik.http.routers.agent-sandbox.tls=true
+      - traefik.http.routers.agent-sandbox.tls.certresolver=cloudflare
+      - traefik.http.routers.agent-sandbox.middlewares=app-fail2ban,security-headers
+      - traefik.http.services.agent-sandbox.loadbalancer.server.port=8088
+      - traefik.docker.network=${SWARM_NETWORK:-homelab_swarm_net}
     networks:
       - shared_net
       - homelab_swarm_net

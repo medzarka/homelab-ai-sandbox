@@ -439,6 +439,17 @@ def read_sandbox_file(session_id: str, filename: str) -> str | bytes:
 
 app = FastAPI(title="Homelab Agent Execution Sandbox & MCP Server", version="2.0.0")
 
+@app.middleware("http")
+async def api_key_auth_middleware(request: Request, call_next):
+    expected_key = os.environ.get("SANDBOX_API_KEY")
+    if expected_key and request.url.path not in ["/docs", "/openapi.json", "/health"]:
+        auth_header = request.headers.get("Authorization", "")
+        api_key_header = request.headers.get("X-API-Key", "")
+        token = auth_header.replace("Bearer ", "").strip() if "Bearer " in auth_header else api_key_header
+        if token != expected_key:
+            return JSONResponse(status_code=401, content={"error": "Unauthorized: Invalid or missing SANDBOX_API_KEY."})
+    return await call_next(request)
+
 class ExecuteRequest(BaseModel):
     language: str
     code: str
