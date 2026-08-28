@@ -27,6 +27,7 @@ services:
       context: ./agent-sandbox
       dockerfile: Dockerfile
     image: ghcr.io/medzarka/homelab-ai-sandbox:latest
+    container_name: compute_agent_sandbox
     restart: unless-stopped
     depends_on:
       sandbox-ramdisk-init:
@@ -87,8 +88,14 @@ services:
       - traefik.http.services.agent-sandbox.loadbalancer.healthcheck.timeout=3s
       - traefik.docker.network=${SWARM_NETWORK:-homelab_swarm_net}
     networks:
-      - shared_net
-      - homelab_swarm_net
+      shared_net:
+        aliases:
+          - compute_agent_sandbox
+          - agent-sandbox
+      homelab_swarm_net:
+        aliases:
+          - compute_agent_sandbox
+          - agent-sandbox
     logging:
       driver: "json-file"
       options:
