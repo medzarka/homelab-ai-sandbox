@@ -1,0 +1,66 @@
+services:
+  # ========================================================
+  # RAMDISK STORAGE INITIALIZER (Permissions & Directories)
+  # ========================================================
+  sandbox-ramdisk-init:
+    image: alpine:latest
+    container_name: compute_sandbox_ramdisk_init
+    user: "0:0"
+    restart: "no"
+    network_mode: none
+    volumes:
+      - ${RAMDISK_DIR:-/mnt/ramdisk}:/ramdisk
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo ">>> [Sandbox RAMDisk Init] Creating ephemeral service directories in RAM..."
+        mkdir -p /ramdisk/sandbox /ramdisk/logs
+        chmod -R 777 /ramdisk
+        echo ">>> [Sandbox RAMDisk Init] RAM-disk initialization complete."
+
+  # ========================================================
+  # AGENT EXECUTION SANDBOX (Headless REST Execution API)
+  # Python ML, Tectonic LaTeX PDF, C, C++, Rust & Java
+  # ========================================================
+  agent-sandbox:
+    build:
+      context: ./agent-sandbox
+      dockerfile: Dockerfile
+    image: homelab-ai-sandbox:latest
+    container_name: compute_agent_sandbox
+    restart: unless-stopped
+    depends_on:
+      sandbox-ramdisk-init:
+        condition: service_completed_successfully
+    volumes:
+      - ${RAMDISK_DIR:-/mnt/ramdisk}/sandbox:/ramdisk/sandbox
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      - SANDBOX_DIR=/ramdisk/sandbox
+      - SANDBOX_API_KEY=${SANDBOX_API_KEY:-}
+      - PYTHON_VERSION=${PYTHON_VERSION:-3.12}
+      - JAVA_VERSION=${JAVA_VERSION:-21}
+      - SESSION_TTL=${SESSION_TTL:-3600}
+      - SANDBOX_DOMAIN=${SANDBOX_DOMAIN:-sandbox.local}
+      - OMP_NUM_THREADS=${OMP_NUM_THREADS:-12}
+      - RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-12}
+    ports:
+      - "8088:8088"
+    networks:
+      - shared_net
+      - homelab_swarm_net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  shared_net:
+    external: true
+    name: ${SHARED_NETWORK:-shared_net}
+  homelab_swarm_net:
+    external: true
+    name: ${SWARM_NETWORK:-homelab_swarm_net}
