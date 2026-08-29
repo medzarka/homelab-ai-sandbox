@@ -92,7 +92,7 @@ services:
       - traefik.http.services.agent-sandbox.loadbalancer.healthcheck.path=/health
       - traefik.http.services.agent-sandbox.loadbalancer.healthcheck.interval=10s
       - traefik.http.services.agent-sandbox.loadbalancer.healthcheck.timeout=3s
-      - traefik.docker.network=${SHARED_NETWORK:-shared_net}
+      - traefik.docker.network=${SWARM_NETWORK:-homelab_swarm_net}
     networks:
       shared_net:
         aliases:
