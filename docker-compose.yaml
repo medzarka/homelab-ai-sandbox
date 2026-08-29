@@ -87,13 +87,12 @@ services:
       - traefik.http.routers.agent-sandbox.rule=Host(`${SANDBOX_DOMAIN:-sandbox.example.com}`)
       - traefik.http.routers.agent-sandbox.entrypoints=websecure
       - traefik.http.routers.agent-sandbox.tls=true
-      - traefik.http.routers.agent-sandbox.tls.certresolver=cloudflare
-      - traefik.http.routers.agent-sandbox.middlewares=app-fail2ban,security-headers
+      - traefik.http.routers.agent-sandbox.middlewares=app-fail2ban@file,security-headers@file
       - traefik.http.services.agent-sandbox.loadbalancer.server.port=8088
       - traefik.http.services.agent-sandbox.loadbalancer.healthcheck.path=/health
       - traefik.http.services.agent-sandbox.loadbalancer.healthcheck.interval=10s
       - traefik.http.services.agent-sandbox.loadbalancer.healthcheck.timeout=3s
-      - traefik.docker.network=${SWARM_NETWORK:-homelab_swarm_net}
+      - traefik.docker.network=${SHARED_NETWORK:-shared_net}
     networks:
       shared_net:
         aliases:
