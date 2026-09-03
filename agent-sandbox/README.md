@@ -2,7 +2,7 @@
 
 An ultra-high-speed, in-memory **Model Context Protocol (MCP)** server and **REST Execution API** tailored for autonomous AI coding agents (such as **Hermes Agent**, **Open-WebUI**, **Claude Desktop**, and custom Python agents).
 
-Operating exclusively inside a dedicated RAM-disk (`/mnt/ramdisk/sandbox`), the sandbox eliminates physical disk I/O latency and flash wear while delivering sub-second compilation and execution across **Python 3.12**, **LaTeX (Tectonic PDF)**, **C (GCC)**, **C++20 (G++)**, **Rust (`rustc`)**, and **Java (OpenJDK)**.
+Operating inside an isolated, high-performance sandbox workspace (RAM-disk on `zap-srv` or fast NVMe on `oci01-flex`), the sandbox eliminates host pollution while delivering sub-second compilation and execution across **Bash / Shell**, **Python 3.12**, **LaTeX (Tectonic PDF)**, **C (GCC)**, **C++20 (G++)**, **Rust (`rustc`)**, and **Java (OpenJDK)**, backed by essential DevOps utilities (`git`, `curl`, `wget`, `jq`, `unzip`).
 
 ---
 
@@ -14,13 +14,12 @@ Operating exclusively inside a dedicated RAM-disk (`/mnt/ramdisk/sandbox`), the 
 2. **Stateful Sessions & Incremental File Caching**:
    - Supports long-lived session workspaces via `session_id`.
    - Upload a 50-file repository once; subsequent tool calls only need to transmit the specific file(s) modified.
-3. **Background Web Server Management (Flask / FastAPI / Node)**:
+3. **Interactive Shell Execution (`run_command`)**:
+   - The agent can execute multi-step terminal commands (`pip install`, `mkdir`, `git clone`, `python script.py`) within a persistent session.
+4. **Background Web Server Management (Flask / FastAPI / Node)**:
    - Built-in `start_web_server` and `stop_web_server` tools enable agents to spawn long-running web servers on dynamic ports without hanging execution timeouts.
-4. **Isolated Virtual Environments**:
+5. **Isolated Virtual Environments**:
    - Each session can build its own isolated `.venv` via `run_command` (`pip install -r requirements.txt`). The sandbox automatically prioritizes session-specific virtual environments.
-5. **Dynamic Runtimes via `.env`**:
-   - **`JAVA_VERSION`**: Configurable in `.env` (`JAVA_VERSION=21`, `17`, `11`). Automatically downloads and links the requested JDK version in RAM without rebuilding the Docker container.
-   - **`PYTHON_VERSION`**: Pre-configured Python 3.12 ML environment (NumPy, SciPy, Pandas, Matplotlib, SymPy, PyPDF, Requests, Flask).
 6. **Hardened Security & Resource Isolation**:
    - Strict path traversal prevention (`is_relative_to` validation).
    - Regex-sanitized session identifiers (`^[a-zA-Z0-9_-]+$`).
@@ -33,11 +32,11 @@ Operating exclusively inside a dedicated RAM-disk (`/mnt/ramdisk/sandbox`), the 
 When Hermes Agent or Open-WebUI connects to `http://100.x.y.z:8088/sse`, the following tools are automatically registered:
 
 ### 1. `execute_code`
-Executes source code in the sandbox.
+Executes source code or shell scripts in the sandbox.
 ```json
 {
-  "language": "python | latex | c | cpp | rust | java | sh",
-  "code": "string (main entrypoint source code)",
+  "language": "bash | sh | python | latex | c | cpp | rust | java",
+  "code": "string (main entrypoint source code or shell script)",
   "files": { "helper.py": "content", "data.csv": "col1,col2..." },
   "timeout": 60,
   "session_id": "optional_session_identifier"

@@ -69,13 +69,16 @@ mcp = MCPServer("Homelab-Execution-Sandbox")
 
 # --- Utilities ---
 def get_python_path(workdir: Optional[Path] = None) -> str:
-    """Prioritizes session-specific virtualenv, falls back to global RAM venv or system python."""
+    """Prioritizes session-specific virtualenv, falls back to pre-baked /opt/venv, global RAM venv, or system python."""
     if workdir:
         session_py = workdir / ".venv" / "bin" / "python3"
         if session_py.exists():
             return str(session_py)
+    opt_py = Path("/opt/venv/bin/python3")
+    if opt_py.exists():
+        return str(opt_py)
     global_py = VENV_DIR / "bin" / "python3"
-    return str(global_py) if global_py.exists() else "/usr/local/bin/python3"
+    return str(global_py) if global_py.exists() else sys.executable
 
 def get_binary(name: str) -> str:
     ram_bin = BIN_DIR / name
@@ -148,6 +151,7 @@ async def get_runtimes() -> str:
         except Exception as e:
             info.append(f"- **{name}**: Not found ({str(e)})")
 
+    check_cmd(["/bin/bash", "--version"], "Bash / Shell")
     check_cmd([get_python_path(), "--version"], "Python")
     check_cmd([get_binary("tectonic"), "--version"], "LaTeX (Tectonic)")
     check_cmd([get_binary("gcc"), "--version"], "C (GCC)")
@@ -155,8 +159,11 @@ async def get_runtimes() -> str:
     check_cmd([get_binary("rustc"), "--version"], "Rust (rustc)")
     check_cmd([get_binary("javac"), "--version"], "Java (javac)")
     check_cmd([get_binary("java"), "--version"], "Java Runtime")
+    check_cmd(["git", "--version"], "Git")
+    check_cmd(["curl", "--version"], "Curl")
+    check_cmd(["jq", "--version"], "Jq")
 
-    return "### Available In-Memory Runtimes\n" + "\n".join(info)
+    return "### Available In-Memory Runtimes & Toolchains\n" + "\n".join(info)
 
 @mcp.tool()
 async def execute_code(
@@ -167,11 +174,11 @@ async def execute_code(
     session_id: Optional[str] = None
 ) -> str:
     """
-    Executes code in a secure in-memory sandbox. Use session_id to maintain state across runs.
+    Executes code or scripts in an ephemeral or persistent in-memory sandbox.
     
     Args:
-        language: "python", "latex", "c", "cpp", "rust", "java", or "sh"
-        code: The main source code to execute.
+        language: "bash", "sh", "python", "latex", "c", "cpp", "rust", or "java"
+        code: The main source code or shell script to execute.
         files: Optional dictionary of {filename: content} for multi-file projects.
         timeout: Execution timeout in seconds (max 300).
         session_id: Optional ID to persist files across multiple executions.
@@ -194,7 +201,7 @@ async def execute_code(
 
     try:
         env = os.environ.copy()
-        env["PATH"] = f"{BIN_DIR}:{VENV_DIR}/bin:{env.get('PATH', '')}"
+        env["PATH"] = f"{BIN_DIR}:/opt/venv/bin:{VENV_DIR}/bin:/opt/rust/cargo/bin:/usr/local/bin:{env.get('PATH', '')}"
         env["RUSTUP_TOOLCHAIN"] = "stable"
         env["RUSTUP_HOME"] = str(SANDBOX_BASE / "rustup")
         env["CARGO_HOME"] = str(SANDBOX_BASE / "cargo")
@@ -282,23 +289,30 @@ async def execute_code(
 @mcp.tool()
 async def run_command(session_id: str, command: str, timeout: int = 120) -> str:
     """
-    Runs an arbitrary shell command in an active session directory (e.g., pip install, venv creation).
+    Runs an arbitrary Bash / Shell command in a session directory (e.g. pip install, git clone, mkdir, curl, python script.py).
+    If the session does not exist yet, it will be automatically created.
     """
     safe_session = re.sub(r'[^a-zA-Z0-9_-]', '', session_id)
-    workdir = RUNS_DIR / f"session_{safe_session}"
+    if not safe_session:
+        return "Error: Invalid session_id format. Use alphanumeric characters, dashes, or underscores."
 
-    if not workdir.exists():
-        return f"Error: Session `{safe_session}` not found."
+    workdir = RUNS_DIR / f"session_{safe_session}"
+    workdir.mkdir(parents=True, exist_ok=True)
+    try:
+        workdir.touch()
+    except Exception:
+        pass
 
     env = os.environ.copy()
-    env["PATH"] = f"{BIN_DIR}:{VENV_DIR}/bin:{env.get('PATH', '')}"
+    env["PATH"] = f"{BIN_DIR}:/opt/venv/bin:{VENV_DIR}/bin:/opt/rust/cargo/bin:/usr/local/bin:{env.get('PATH', '')}"
 
     proc = await asyncio.create_subprocess_shell(
         command,
         cwd=str(workdir),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        env=env
+        env=env,
+        executable="/bin/bash"
     )
 
     try:
@@ -519,7 +533,7 @@ async def rest_execute(req: ExecuteRequest):
 
     try:
         env = os.environ.copy()
-        env["PATH"] = f"{BIN_DIR}:{VENV_DIR}/bin:{env.get('PATH', '')}"
+        env["PATH"] = f"{BIN_DIR}:/opt/venv/bin:{VENV_DIR}/bin:/opt/rust/cargo/bin:/usr/local/bin:{env.get('PATH', '')}"
         env["RUSTUP_TOOLCHAIN"] = "stable"
         env["RUSTUP_HOME"] = str(SANDBOX_BASE / "rustup")
         env["CARGO_HOME"] = str(SANDBOX_BASE / "cargo")
