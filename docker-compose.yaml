@@ -4,7 +4,7 @@ services:
   # ========================================================
   sandbox-workspace-init:
     image: alpine:latest
-    container_name: compute_sandbox_workspace_init
+    container_name: compute_sandbox_workspace_init_${NODE_NAME:-node}
     user: "0:0"
     restart: unless-stopped
     network_mode: none
@@ -34,7 +34,7 @@ services:
       context: ./agent-sandbox
       dockerfile: Dockerfile
     image: ghcr.io/medzarka/homelab-ai-sandbox:latest
-    container_name: compute_agent_sandbox
+    container_name: compute_agent_sandbox_${NODE_NAME:-node}
     restart: unless-stopped
     depends_on:
       sandbox-workspace-init:
@@ -98,11 +98,13 @@ services:
           - compute_agent_sandbox
           - agent-sandbox
           - agent-sandbox-${NODE_NAME:-node}
+          - compute_agent_sandbox_${NODE_NAME:-node}
       homelab_swarm_net:
         aliases:
           - compute_agent_sandbox
           - agent-sandbox
           - agent-sandbox-${NODE_NAME:-node}
+          - compute_agent_sandbox_${NODE_NAME:-node}
     logging:
       driver: "json-file"
       options:
