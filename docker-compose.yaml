@@ -1,25 +1,25 @@
 services:
   # ========================================================
-  # STORAGE INITIALIZER (RAM-Disk on zap-srv / NVMe on oci01-flex)
+  # WORKSPACE INITIALIZER (zap-srv & oci01-flex)
   # ========================================================
-  sandbox-storage-init:
+  sandbox-workspace-init:
     image: alpine:latest
-    container_name: compute_sandbox_storage_init
+    container_name: compute_sandbox_workspace_init
     user: "0:0"
     restart: unless-stopped
     network_mode: none
     volumes:
-      - ${SANDBOX_STORAGE_DIR:-${RAMDISK_DIR:-/mnt/ramdisk}}:/storage
+      - ${WORKSPACE_DIR:-/srv/data/workspace}:/workspace
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        echo ">>> [Sandbox Storage Init] Creating service directories in ${SANDBOX_STORAGE_DIR:-/mnt/ramdisk}..."
-        mkdir -p /storage/sandbox /storage/logs
-        chmod -R 777 /storage
-        echo ">>> [Sandbox Storage Init] Storage initialization complete. Storage guard active."
+        echo ">>> [Sandbox Workspace Init] Preparing directories in ${WORKSPACE_DIR:-/srv/data/workspace}..."
+        mkdir -p /workspace/sandbox /workspace/logs
+        chmod -R 777 /workspace
+        echo ">>> [Sandbox Workspace Init] Storage initialization complete. Guard active."
         sleep infinity
     healthcheck:
-      test: ["CMD-SHELL", "test -d /storage/sandbox || exit 1"]
+      test: ["CMD-SHELL", "test -d /workspace/sandbox || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -37,15 +37,15 @@ services:
     container_name: compute_agent_sandbox
     restart: unless-stopped
     depends_on:
-      sandbox-storage-init:
+      sandbox-workspace-init:
         condition: service_healthy
     volumes:
-      - ${SANDBOX_STORAGE_DIR:-${RAMDISK_DIR:-/mnt/ramdisk}}/sandbox:/ramdisk/sandbox
+      - ${WORKSPACE_DIR:-/srv/data/workspace}/sandbox:/workspace/sandbox
     dns:
       - 8.8.8.8
       - 1.1.1.1
     environment:
-      - SANDBOX_DIR=/ramdisk/sandbox
+      - SANDBOX_DIR=/workspace/sandbox
       - SANDBOX_API_KEY=${SANDBOX_API_KEY:-}
       - PYTHON_VERSION=${PYTHON_VERSION:-3.12}
       - JAVA_VERSION=${JAVA_VERSION:-21}
@@ -53,8 +53,7 @@ services:
       - SANDBOX_DOMAIN=${SANDBOX_DOMAIN:-sandbox.local}
       - OMP_NUM_THREADS=${OMP_NUM_THREADS:-12}
       - RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-12}
-    ports:
-      - "8088:8088"
+    # No host ports mapped. Access is strictly through Swarm overlay DNS or Traefik gateway.
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://127.0.0.1:8088/health || exit 1"]
       interval: 10s

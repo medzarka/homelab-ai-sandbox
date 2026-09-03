@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-SANDBOX_DIR="${SANDBOX_DIR:-/ramdisk/sandbox}"
+SANDBOX_DIR="${SANDBOX_DIR:-/workspace/sandbox}"
 BIN_DIR="${SANDBOX_DIR}/bin"
 VENV_DIR="${SANDBOX_DIR}/venv"
 RUSTUP_HOME="${RUSTUP_HOME:-/opt/rust/rustup}"

@@ -8,6 +8,7 @@ import asyncio
 import re
 import threading
 import subprocess
+import secrets
 from pathlib import Path
 from typing import Dict, Optional, Any, List
 
@@ -23,7 +24,7 @@ except ImportError:
     from mcp.server.fastmcp import FastMCP as MCPServer
 
 # --- Configuration ---
-SANDBOX_BASE = Path(os.environ.get("SANDBOX_DIR", "/ramdisk/sandbox"))
+SANDBOX_BASE = Path(os.environ.get("SANDBOX_DIR", "/workspace/sandbox"))
 RUNS_DIR = SANDBOX_BASE / "runs"
 BIN_DIR = SANDBOX_BASE / "bin"
 VENV_DIR = SANDBOX_BASE / "venv"
@@ -486,16 +487,39 @@ class SessionRequest(BaseModel):
     session_id: str
 
 # --- API Key Authentication Guard ---
-SANDBOX_API_KEY = os.environ.get("SANDBOX_API_KEY") or None
+SANDBOX_API_KEY = (os.environ.get("SANDBOX_API_KEY") or "").strip()
 
 @app.middleware("http")
 async def api_key_auth_middleware(request: Request, call_next):
-    if SANDBOX_API_KEY and request.url.path not in ["/health", "/docs", "/openapi.json"]:
-        auth_header = request.headers.get("Authorization", "")
-        api_key_header = request.headers.get("X-API-Key", "")
-        token = auth_header.replace("Bearer ", "").strip() if "Bearer " in auth_header else api_key_header
-        if token != SANDBOX_API_KEY:
-            return JSONResponse(status_code=401, content={"error": "Unauthorized: Invalid or missing API key."})
+    # Health check is public for load-balancer polling
+    if request.url.path == "/health":
+        return await call_next(request)
+
+    # API key is mandatory for sandbox execution
+    if not SANDBOX_API_KEY:
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Server configuration error: SANDBOX_API_KEY is not configured on this host."}
+        )
+
+    # Support X-API-Key header, Authorization: Bearer <key>, or query parameter (?api_key= or ?token=)
+    auth_header = request.headers.get("Authorization", "")
+    api_key_header = request.headers.get("X-API-Key", "")
+    query_token = request.query_params.get("api_key") or request.query_params.get("token") or ""
+
+    token = ""
+    if "Bearer " in auth_header:
+        token = auth_header.replace("Bearer ", "").strip()
+    elif api_key_header:
+        token = api_key_header.strip()
+    elif query_token:
+        token = query_token.strip()
+
+    if not token or not secrets.compare_digest(token, SANDBOX_API_KEY):
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Unauthorized: Invalid or missing API key. Provide via X-API-Key header, Bearer token, or ?api_key= query parameter."}
+        )
     return await call_next(request)
 
 @app.get("/health")
