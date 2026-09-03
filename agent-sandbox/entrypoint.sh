@@ -59,14 +59,13 @@ if [ -d "/opt/venv" ]; then
     ln -sf "/opt/venv/bin/python3" "${BIN_DIR}/python3"
     ln -sf "/opt/venv/bin/python" "${BIN_DIR}/python"
     ln -sf "/opt/venv/bin/pip" "${BIN_DIR}/pip"
-    ln -sf "/opt/venv/bin/python3" "/usr/local/bin/python3" 2>/dev/null || true
-    ln -sf "/opt/venv/bin/pip" "/usr/local/bin/pip" 2>/dev/null || true
 fi
 
-export PATH="${BIN_DIR}:/opt/venv/bin:/opt/rust/cargo/bin:/usr/local/bin:${PATH}"
+export VIRTUAL_ENV="/opt/venv"
+export PATH="/opt/venv/bin:${BIN_DIR}:/opt/rust/cargo/bin:/usr/local/bin:${PATH}"
 
 echo ">>> [Homelab Agent Sandbox] All toolchains linked in < 0.1s (Zero-Download Startup)."
 echo ">>> [Homelab Agent Sandbox] Available tools: Bash, Python, Java, Rust, C, C++, LaTeX, Git, Curl, Wget, Jq"
 echo ">>> [Homelab Agent Sandbox] Launching Dual MCP Server (SSE Transport) & REST API on port 8088..."
 
-exec /opt/venv/bin/python3 /app/server.py
+exec python3 /app/server.py
