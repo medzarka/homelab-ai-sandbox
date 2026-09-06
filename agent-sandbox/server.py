@@ -491,16 +491,13 @@ SANDBOX_API_KEY = (os.environ.get("SANDBOX_API_KEY") or "").strip()
 
 @app.middleware("http")
 async def api_key_auth_middleware(request: Request, call_next):
-    # Health check is public for load-balancer polling
-    if request.url.path == "/health":
+    # Health and docs check is public
+    if request.url.path in ["/health", "/docs", "/openapi.json"]:
         return await call_next(request)
 
-    # API key is mandatory for sandbox execution
+    # API key is verified if configured
     if not SANDBOX_API_KEY:
-        return JSONResponse(
-            status_code=500,
-            content={"error": "Server configuration error: SANDBOX_API_KEY is not configured on this host."}
-        )
+        return await call_next(request)
 
     # Support X-API-Key header, Authorization: Bearer <key>, or query parameter (?api_key= or ?token=)
     auth_header = request.headers.get("Authorization", "")
