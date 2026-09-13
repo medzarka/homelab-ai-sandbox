@@ -53,7 +53,8 @@ services:
       - SANDBOX_DOMAIN=${SANDBOX_DOMAIN:-sandbox.local}
       - OMP_NUM_THREADS=${OMP_NUM_THREADS:-12}
       - RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-12}
-    # No host ports mapped. Access is strictly through Swarm overlay DNS or Traefik gateway.
+    ports:
+      - "${SANDBOX_PORT:-8088}:8088"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://127.0.0.1:8088/health || exit 1"]
       interval: 10s
