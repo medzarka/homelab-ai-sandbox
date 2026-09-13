@@ -34,6 +34,7 @@ services:
       context: ./agent-sandbox
       dockerfile: Dockerfile
     image: ghcr.io/medzarka/homelab-ai-sandbox:latest
+    pull_policy: always
     container_name: compute_agent_sandbox_${NODE_NAME:-node}
     restart: unless-stopped
     depends_on:
