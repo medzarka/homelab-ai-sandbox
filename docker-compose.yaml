@@ -30,9 +30,6 @@ services:
   # Multi-Node High Availability (zap-srv & oci01-flex)
   # ========================================================
   agent-sandbox:
-    build:
-      context: ./agent-sandbox
-      dockerfile: Dockerfile
     image: ghcr.io/medzarka/homelab-ai-sandbox:latest
     pull_policy: always
     container_name: compute_agent_sandbox_${NODE_NAME:-node}
